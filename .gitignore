@@ -1,0 +1,8 @@
+# Datos guardados por los usuarios (pueden ser grandes)
+saved_datasets/
+saved_results/
+
+# Python
+__pycache__/
+*.pyc
+.env
