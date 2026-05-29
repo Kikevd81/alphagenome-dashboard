@@ -8,6 +8,7 @@ import numpy as np
 import os
 import json
 import time
+import requests
 from alphagenome.data import genome
 from alphagenome.models import dna_client
 
@@ -155,6 +156,21 @@ st.markdown("""
 
 # ─── Helper Functions ────────────────────────────────────────────────────────
 
+def get_gene_symbols(rsids):
+    if not rsids: return {}
+    try:
+        url = 'https://myvariant.info/v1/query'
+        data = {'q': ','.join(rsids), 'scopes': 'dbsnp.rsid', 'fields': 'dbsnp.gene.symbol'}
+        res = requests.post(url, data=data).json()
+        mapping = {}
+        for r in res:
+            if 'query' in r and 'dbsnp' in r and 'gene' in r['dbsnp']:
+                sym = r['dbsnp']['gene'].get('symbol')
+                if sym: mapping[r['query']] = sym
+        return mapping
+    except:
+        return {}
+
 def list_saved_datasets():
     """Return list of (name, filepath) tuples for saved datasets."""
     datasets = []
@@ -287,7 +303,14 @@ def run_multitissue_analysis(model, df_variants, tissues_selected, max_vars, pro
         resultados.append(fila)
     
     progress_bar.progress(1.0)
-    status_text.text("✅ Análisis multitejido completado.")
+    status_text.text("✅ Análisis multitejido completado. Buscando genes...")
+    
+    gene_map = get_gene_symbols([r['rsid'] for r in resultados])
+    for r in resultados:
+        sym = gene_map.get(r['rsid'])
+        r['gen_asociado'] = sym if sym else 'Desconocido'
+        r['etiqueta_grafico'] = f"{r['rsid']} (Gen: {sym})" if sym else r['rsid']
+        
     time.sleep(0.5)
     
     return pd.DataFrame(resultados)
@@ -682,16 +705,6 @@ else:
     with tab_multitissue:
         st.markdown("## 🫀 Análisis de expresión génica multitejido (RNA-seq)")
         
-        with st.expander("💡 ¿Qué significan estos datos? (Guía fácil)", expanded=True):
-            st.markdown("""
-            - **Variante (rsID):** Un código como `rs114525117` es simplemente el "código de barras" o DNI de una pequeña mutación concreta en tu ADN. Todos tenemos millones y la mayoría son inofensivas.
-            - **Impacto:** La Inteligencia Artificial simula qué pasaría en tu cuerpo debido a esa variante. Mide cuánto se "enciende" o "apaga" el funcionamiento normal del tejido.
-            - **Categorías de impacto:**
-              - 🟢 **Bajo:** La variante no hace casi nada. Tu tejido funciona igual.
-              - 🟡 **Moderado:** Hay un cambio notable en cómo funciona la célula, pero no tiene por qué ser malo.
-              - 🔴 **Alto:** La variante cambia drásticamente la biología del tejido y podría afectar a tu salud.
-            """)
-        
         if not selected_tissues:
             st.warning("Selecciona al menos un tejido en la barra lateral.")
         else:
@@ -747,7 +760,7 @@ else:
                     # ── Heatmap ─────────────────────────────────────────────
                     st.markdown("### 🗺️ Mapa de calor multitejido")
                     
-                    heat_data = df_mt.set_index('rsid')[tissue_cols].apply(pd.to_numeric, errors='coerce')
+                    heat_data = df_mt.set_index('etiqueta_grafico')[tissue_cols].apply(pd.to_numeric, errors='coerce')
                     
                     fig_heat = px.imshow(
                         heat_data,
@@ -773,7 +786,7 @@ else:
                         })
                         fig_bar = go.Figure(data=[
                             go.Bar(
-                                y=df_sorted['rsid'],
+                                y=df_sorted['etiqueta_grafico'],
                                 x=df_sorted['impacto_max'],
                                 orientation='h',
                                 marker_color=colors,
@@ -807,11 +820,11 @@ else:
                                 fill='toself',
                                 fillcolor='rgba(102, 126, 234, 0.3)',
                                 line=dict(color='#667eea', width=2),
-                                name=top_var['rsid']
+                                name=top_var['etiqueta_grafico']
                             )
                         ])
                         fig_radar.update_layout(
-                            title=f"Perfil de tejidos: {top_var['rsid']}",
+                            title=f"Perfil de tejidos: {top_var['etiqueta_grafico']}",
                             polar=dict(
                                 bgcolor='#0e1117',
                                 radialaxis=dict(gridcolor='#333'),
@@ -947,13 +960,16 @@ else:
                 
                 with col_d1:
                     # Bar chart by disease
+                    found = found.copy()
+                    found['explicacion'] = found['enfermedad'].map(EXPLICACIONES_RIESGO)
+                    
                     fig_dis = px.bar(
                         found.sort_values('impacto', ascending=True),
                         y='enfermedad', x='impacto',
                         color='impacto',
                         color_continuous_scale='OrRd',
                         orientation='h',
-                        hover_data=['rsid', 'genotipo'],
+                        hover_data={'rsid': True, 'genotipo': True, 'impacto': ':.4f', 'explicacion': True},
                         title="Impacto por gen/enfermedad"
                     )
                     fig_dis.update_layout(
