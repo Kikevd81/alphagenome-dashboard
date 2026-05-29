@@ -48,6 +48,18 @@ GENES_RIESGO = {
     'PCSK9 – Cardiovascular':     (['rs11591147','rs562556'],                'UBERON:0000948'),
 }
 
+EXPLICACIONES_RIESGO = {
+    'BRCA1 – Cáncer de mama': 'Produce proteínas que reparan el ADN. Variantes aquí pueden aumentar la probabilidad de desarrollar cáncer de mama y ovario.',
+    'APOE – Alzheimer': 'Ayuda a transportar el colesterol. Ciertas variantes están muy asociadas con un mayor riesgo de desarrollar Alzheimer en el futuro.',
+    'MTHFR – Homocisteína': 'Procesa la Vitamina B9 (folato). Variantes pueden causar problemas leves de circulación o deficiencia vitamínica.',
+    'LDLR – Colesterol': 'Elimina el "colesterol malo" (LDL) de la sangre. Sus variantes predisponen a tener el colesterol alto de forma hereditaria.',
+    'HFE – Hemocromatosis': 'Regula cuánto hierro de la dieta absorbe el cuerpo. Mutaciones hacen que acumules un exceso de hierro.',
+    'CYP2C19 – Fármacos': 'Controla a qué velocidad tu hígado procesa medicamentos (ej: antidepresivos, omeprazol). Determina la dosis que necesitas.',
+    'TP53 – Cáncer general': 'Conocido como el "guardián del genoma". Previene que las células crezcan sin control. Sus variantes elevan el riesgo de varios cánceres.',
+    'MUTYH – Cáncer de colon': 'Repara pequeños errores en el ADN. Variantes en este gen aumentan el riesgo de desarrollar pólipos y cáncer de colon.',
+    'PCSK9 – Cardiovascular': 'Controla la cantidad de receptores de colesterol. Variantes aquí alteran tu riesgo de sufrir problemas de corazón.'
+}
+
 # ─── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="AlphaGenome Dashboard",
@@ -670,6 +682,16 @@ else:
     with tab_multitissue:
         st.markdown("## 🫀 Análisis de expresión génica multitejido (RNA-seq)")
         
+        with st.expander("💡 ¿Qué significan estos datos? (Guía fácil)", expanded=True):
+            st.markdown("""
+            - **Variante (rsID):** Un código como `rs114525117` es simplemente el "código de barras" o DNI de una pequeña mutación concreta en tu ADN. Todos tenemos millones y la mayoría son inofensivas.
+            - **Impacto:** La Inteligencia Artificial simula qué pasaría en tu cuerpo debido a esa variante. Mide cuánto se "enciende" o "apaga" el funcionamiento normal del tejido.
+            - **Categorías de impacto:**
+              - 🟢 **Bajo:** La variante no hace casi nada. Tu tejido funciona igual.
+              - 🟡 **Moderado:** Hay un cambio notable en cómo funciona la célula, pero no tiene por qué ser malo.
+              - 🔴 **Alto:** La variante cambia drásticamente la biología del tejido y podría afectar a tu salud.
+            """)
+        
         if not selected_tissues:
             st.warning("Selecciona al menos un tejido en la barra lateral.")
         else:
@@ -969,8 +991,13 @@ else:
                     )
                     st.plotly_chart(fig_rad_d, use_container_width=True)
             
-            st.markdown("### 📋 Tabla completa")
-            st.dataframe(df_dr, use_container_width=True, hide_index=True)
+            st.markdown("### 📋 Tabla completa explicada")
+            
+            # Add descriptions to the table
+            df_show = df_dr.copy()
+            df_show['¿Qué significa este gen?'] = df_show['enfermedad'].map(EXPLICACIONES_RIESGO)
+            
+            st.dataframe(df_show, use_container_width=True, hide_index=True)
     
     # ════════════════════════════════════════════════════════════════════════
     #  TAB 4: Data Explorer
